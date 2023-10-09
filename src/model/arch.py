@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
 
-from torchvision.models.detection import MaskRCNN_ResNet50_FPN_Weights, maskrcnn_resnet50_fpn
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights, fasterrcnn_resnet50_fpn_v2
+from ..data.visualgenome import Dataset
+from IPython import embed
+from .repn import RePN
 from .gnn import GNN
+from .. import const
 import torch
 
-class SceneGraphGenerator:
+class SceneGraphGenerator(torch.nn.Module):
     def __init__(self):
-        self.backbone = maskrcnn_resnet50_fpn(weights=MaskRCNN_ResNet50_FPN_Weights.DEFAULT)
-        self.gnn = GNN()
+        super().__init__()
 
-    def predict(self, x):
+        self.backbone = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT)
+        self.repn = RePN()
+        # self.gnn = GNN()
+
+    def forward(self, x):
         x = self.backbone(x)
-        x = self.preproc(x)
-        x = self.gnn(x)
-        return self.postproc(x)
+        x = self.repn(x)
+        # x = self.gnn(x)
+        # return self.postproc(x), 
+        return x
 
 
 if __name__ == '__main__':
-    model = SceneGraphGenerator()
-    mdoel.eval()
-
-    inp = [torch.rand(3, 300, 400), 
-           torch.rand(3, 500, 400)]
+    dataset = Dataset()
+    model = SceneGraphGenerator().to(const.DEVICE)
+    model.eval()
 
     with torch.no_grad():
-        print(model.predict(inp))
+       y_pred = model(dataset[0].unsqueeze(0).to(const.DEVICE))
+    embed()

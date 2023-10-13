@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from torch_geometric.data import Data
 from itertools import combinations
 from src.utils.nms import nms
 from src import const
@@ -28,11 +29,10 @@ class RePN(nn.Module):
 
             score_matrix = self.sigmoid(score_matrix).fill_diagonal_(torch.nan)
             pairs = score_matrix.view(-1).sort(descending=True)
-            pairs = pairs.indices[pairs.values.isnan() == False][:const.repn.TOP_K]  # sorted in descending order of confidence
-            pairs = nms(pairs, prediction['boxes'], n_pairs)
+            pairs = nms(pairs.indices[pairs.values.isnan() == False][:const.repn.TOP_K],  # sorted in descending order of confidence
+                        prediction['boxes'], n_pairs)
 
             boxes = torch.empty(1, 2, 4)
-            scores = torch.empty(1, 91)
             features = torch.empty(1, 1024)
             for pair in pairs:
                 idx = (pair // n_pairs, pair % n_pairs)
@@ -41,13 +41,18 @@ class RePN(nn.Module):
 
                 larger_box_idx = (torch.abs(box_set[0, :, 0] - box_set[0, :, 1]) * torch.abs(box_set[0, :, 0] - box_set[0, :, 1])).argmax()
                 features = torch.vstack([features, prediction['features'][idx[larger_box_idx]].unsqueeze(0)])
-                scores = torch.vstack([scores, prediction['scores'][idx[larger_box_idx]].unsqueeze(0)])
                 boxes = torch.vstack([boxes, box_set])
 
-            # idx = [box_iou(boxes[1:, 0], boxes[1:, 1]) < const.repn.IOU_THRESH]
             boxes = boxes[1:]
-            scores = scores[1:]
             features = features[1:]
 
-            graphs.append((boxes, features, scores))
+            graphs.append(self._generate_graph(boxes, features))
         return graphs
+
+    @staticmethod
+    def _generate_graph(box_pairs, edge_features):
+        nodes = torch.unique(box_pairs.view(-1, 4), dim=0)
+        ln = nodes.tolist()
+
+        edge_indices = torch.tensor([[ln.index(box.tolist()) for box in boxes] for boxes in box_pairs], dtype=torch.int32)
+        return Data(x=nodes, edge_attr=edge_features, edge_index=edge_indices)

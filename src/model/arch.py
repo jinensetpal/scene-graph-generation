@@ -8,6 +8,7 @@ from .gnn import GNN
 from .. import const
 import torch
 
+
 class SceneGraphGenerator(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -20,7 +21,7 @@ class SceneGraphGenerator(torch.nn.Module):
         x = self.backbone(x)
         x = self.repn(x)
         # x = self.gnn(x)
-        # return self.postproc(x), 
+        # return self.postproc(x),
         return x
 
 
@@ -30,5 +31,5 @@ if __name__ == '__main__':
     model.eval()
 
     with torch.no_grad():
-       y_pred = model(dataset[0].unsqueeze(0).to(const.DEVICE))
+        y_pred = model(dataset[0].unsqueeze(0).to(const.DEVICE))
     embed()

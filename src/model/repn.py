@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-from IPython import embed
-
-from torchvision.ops import box_iou
 from itertools import combinations
-from src.utils import Graph
+from src.utils.nms import nms
 from src import const
 import torch.nn as nn
 import torch
+
 
 class RePN(nn.Module):
     def __init__(self):
@@ -28,13 +26,15 @@ class RePN(nn.Module):
                 score_matrix[subj_idx][obj_idx] = torch.matmul(self.proj_subj(prediction['scores'][subj_idx][:-1]) * prediction['features'][subj_idx],
                                                                self.proj_obj(prediction['scores'][obj_idx][:-1]) * prediction['features'][obj_idx])
 
-            pairs = self.sigmoid(score_matrix).fill_diagonal_(torch.nan).view(-1).sort(descending=True)
-            pairs = pairs.indices[pairs.values.isnan() == False][:const.repn.TOP_K]
+            score_matrix = self.sigmoid(score_matrix).fill_diagonal_(torch.nan)
+            pairs = score_matrix.view(-1).sort(descending=True)
+            pairs = pairs.indices[pairs.values.isnan() == False][:const.repn.TOP_K]  # sorted in descending order of confidence
+            pairs = nms(pairs, prediction['boxes'], n_pairs)
 
             boxes = torch.empty(1, 2, 4)
             scores = torch.empty(1, 91)
             features = torch.empty(1, 1024)
-            for pair in pairs: 
+            for pair in pairs:
                 idx = (pair // n_pairs, pair % n_pairs)
                 box_set = (torch.vstack([prediction['boxes'][idx[0]],
                                          prediction['boxes'][idx[1]]])).unsqueeze(0)
@@ -44,10 +44,10 @@ class RePN(nn.Module):
                 scores = torch.vstack([scores, prediction['scores'][idx[larger_box_idx]].unsqueeze(0)])
                 boxes = torch.vstack([boxes, box_set])
 
-            idx = [box_iou(boxes[1:, 0], boxes[1:, 1]).diag() < const.repn.IOU_THRESH]
-            boxes = boxes[1:][idx]
-            scores = scores[1:][idx]
-            features = features[1:][idx]
+            # idx = [box_iou(boxes[1:, 0], boxes[1:, 1]) < const.repn.IOU_THRESH]
+            boxes = boxes[1:]
+            scores = scores[1:]
+            features = features[1:]
 
-            graphs.append(Graph(boxes, features, scores))
+            graphs.append((boxes, features, scores))
         return graphs

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from src.model.arch import SceneGraphGenerator
-from src.model.loss import 
+# from src.model.loss import 
 import const
 import torch
 import sys

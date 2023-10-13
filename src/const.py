@@ -8,14 +8,16 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / 'data'
 MODEL_DIR = BASE_DIR / 'models'
 
-DEVICE = 'cpu' # 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 N_CLASSES = 90
+
 
 @dataclass
 class repn:
     TOP_K = 128
-    IOU_THRESH = .6
-    PROJECTION = 1024 # same as RoI pooling dimensions
+    IOU_THRESH = .01
+    PROJECTION = 1024  # same as RoI pooling dimensions
+
 
 @dataclass
 class training:

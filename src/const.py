@@ -15,8 +15,14 @@ N_CLASSES = 90
 @dataclass
 class repn:
     TOP_K = 128
-    IOU_THRESH = .01
+    IOU_THRESH = .7
+    HIDDEN = 512
     PROJECTION = 1024  # same as RoI pooling dimensions
+
+
+@dataclass
+class agcn:
+    PROJECTION = 256
 
 
 @dataclass

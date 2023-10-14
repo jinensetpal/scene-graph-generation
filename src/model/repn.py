@@ -12,8 +12,12 @@ class RePN(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.proj_subj = nn.Linear(const.N_CLASSES, const.repn.PROJECTION)
-        self.proj_obj = nn.Linear(const.N_CLASSES, const.repn.PROJECTION)
+        self.proj_subj = nn.Sequential(nn.Linear(const.N_CLASSES, const.repn.HIDDEN),
+                                       nn.ReLU(),
+                                       nn.Linear(const.repn.HIDDEN, const.repn.PROJECTION))
+        self.proj_obj = nn.Sequential(nn.Linear(const.N_CLASSES, const.repn.HIDDEN),
+                                      nn.ReLU(),
+                                      nn.Linear(const.repn.HIDDEN, const.repn.PROJECTION))
 
         self.sigmoid = nn.Sigmoid()
 
@@ -33,14 +37,15 @@ class RePN(nn.Module):
                         prediction['boxes'], n_pairs)
 
             boxes = torch.empty(1, 2, 4)
-            features = torch.empty(1, 1024)
+            features = torch.empty(1, 3, 1024)
             for pair in pairs:
                 idx = (pair // n_pairs, pair % n_pairs)
                 box_set = (torch.vstack([prediction['boxes'][idx[0]],
                                          prediction['boxes'][idx[1]]])).unsqueeze(0)
+                features_set = (torch.vstack([prediction['features'][idx[0]],
+                                              prediction['features'][idx[1]]])).unsqueeze(0)
 
-                larger_box_idx = (torch.abs(box_set[0, :, 0] - box_set[0, :, 1]) * torch.abs(box_set[0, :, 0] - box_set[0, :, 1])).argmax()
-                features = torch.vstack([features, prediction['features'][idx[larger_box_idx]].unsqueeze(0)])
+                features = torch.vstack([features, torch.vstack([features_set[0], features_set.mean(dim=1)]).unsqueeze(0)])
                 boxes = torch.vstack([boxes, box_set])
 
             boxes = boxes[1:]
@@ -50,9 +55,12 @@ class RePN(nn.Module):
         return graphs
 
     @staticmethod
-    def _generate_graph(box_pairs, edge_features):
-        nodes = torch.unique(box_pairs.view(-1, 4), dim=0)
-        ln = nodes.tolist()
+    def _generate_graph(box_pairs, features):
+        node_boxes = torch.unique(box_pairs.view(-1, 4), dim=0)
+        node_features = torch.unique(features[:, :2].reshape(-1, features.shape[-1]), dim=0)
+        node_features = torch.vstack([node_features, features[:, 2]])
+        ln = node_boxes.tolist()
 
-        edge_indices = torch.tensor([[ln.index(box.tolist()) for box in boxes] for boxes in box_pairs], dtype=torch.int32)
-        return Data(x=nodes, edge_attr=edge_features, edge_index=edge_indices)
+        edge_indices = torch.vstack([torch.tensor(list(combinations(range(node_boxes.shape[0]), 2))),
+                                     torch.tensor([[ln.index(box.tolist()), node_boxes.shape[0] + idx] for idx, boxes in enumerate(box_pairs) for box in boxes], dtype=torch.int32)])
+        return Data(x=node_features, edge_index=edge_indices, boxes=node_boxes)

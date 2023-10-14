@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from torch_geometric.data import Data
+from torch_geometric.data import HeteroData
 from itertools import combinations
 from src.utils.nms import nms
 from src import const
@@ -56,11 +56,14 @@ class RePN(nn.Module):
 
     @staticmethod
     def _generate_graph(box_pairs, features):
-        node_boxes = torch.unique(box_pairs.view(-1, 4), dim=0)
-        node_features = torch.unique(features[:, :2].reshape(-1, features.shape[-1]), dim=0)
-        node_features = torch.vstack([node_features, features[:, 2]])
-        ln = node_boxes.tolist()
+        graph = HeteroData()
+        graph['object'].boxes = torch.unique(box_pairs.view(-1, 4), dim=0)
+        graph['object'].features = torch.unique(features[:, :2].reshape(-1, features.shape[-1]), dim=0)
+        graph['relation'].features = features[:, 2]
+        ln = graph['object'].boxes.tolist()
 
-        edge_indices = torch.vstack([torch.tensor(list(combinations(range(node_boxes.shape[0]), 2))),
-                                     torch.tensor([[ln.index(box.tolist()), node_boxes.shape[0] + idx] for idx, boxes in enumerate(box_pairs) for box in boxes], dtype=torch.int32)])
-        return Data(x=node_features, edge_index=edge_indices, boxes=node_boxes)
+        graph['object', 'skip', 'object'].edge_index = torch.tensor(list(combinations(range(graph['object'].boxes.shape[0]), 2)), dtype=torch.int64).t()
+        graph['object', 'to', 'relation'].edge_index = torch.tensor([[ln.index(box.tolist()), idx] for idx, box in enumerate(box_pairs[:, 0])], dtype=torch.int64).t()
+        graph['relation', 'to', 'object'].edge_index = torch.tensor([[idx, ln.index(box.tolist())] for idx, box in enumerate(box_pairs[:, 1])], dtype=torch.int64).t()
+
+        return graph

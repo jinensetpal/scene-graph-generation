@@ -10,6 +10,7 @@ MODEL_DIR = BASE_DIR / 'models'
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 N_CLASSES = 90
+N_RELATIONS = 4017
 
 
 @dataclass

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights, fasterrcnn_resnet50_fpn_v2
+from torch_geometric.nn import to_hetero
 from ..data.visualgenome import Dataset
 from IPython import embed
 from .repn import RePN
@@ -15,13 +16,12 @@ class SceneGraphGenerator(torch.nn.Module):
 
         self.backbone = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT)
         self.repn = RePN()
-        # self.agcn = aGCN()
+        self.agcn = aGCN()
 
     def forward(self, x):
         x = self.backbone(x)
         x = self.repn(x)
-        # x = self.agcn(x)
-        # return self.postproc(x)
+        x = self.agcn(x)
         return x
 
 

@@ -15,6 +15,7 @@ python -m src.model.arch
 ```
 
 ## Project Structure
+```
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
@@ -27,8 +28,7 @@ python -m src.model.arch
     │   ├── arch.py         <- model architecture
     │   ├── agcn.py         <- attention graph convolutional network
     │   └── repn.py         <- relationship proposal network
-    └── utils <- helper scripts
-        ├── pipeline.sh     <- run all the code at once
-        └── colab_setup.sh  <- automate colab setup
+    └── utils.py            <- helper functions (nms)
+```
 
 -----

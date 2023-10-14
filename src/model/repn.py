@@ -2,7 +2,7 @@
 
 from torch_geometric.data import HeteroData
 from itertools import combinations
-from src.utils.nms import nms
+from src.utils import nms
 from src import const
 import torch.nn as nn
 import torch

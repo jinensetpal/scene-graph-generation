@@ -2,5 +2,4 @@ flake8==6.1.0
 ipython==8.16.1
 pandas==2.1.1
 torch-geometric==2.3.1
-git+https://github.com/ML-Purdue/torchvision.git
-# torchaudio==2.2.0.dev20231008+cu121
+https://github.com/ML-Purdue/torchvision/releases/download/v.0.16.0-mlp/torchvision-0.16.0+3324288-cp311-cp311-linux_x86_64.whl

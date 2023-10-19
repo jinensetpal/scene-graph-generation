@@ -8,7 +8,7 @@ This is the template repository for the Scene Graph Generation Challenge.
 From the root of the repository:
 ```bash
 pip install -r requirements.txt  # please use a virtual environment!
-aws s3 cp s3://visualgenome data --recursive
+aws s3 cp s3://visualgenome data --recursive --no-sign-request
 ```
 
 ### Forking the template to your repository

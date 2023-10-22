@@ -24,3 +24,8 @@ def nms(pairs, boxes, n_pairs):
 
             if iou > const.repn.IOU_THRESH: ignored_ind.append(gold_ind + ind)
     return trimmed_pairs
+
+def ohe(n, i):
+    x = torch.zeros(n)
+    x[i] = 1
+    return x

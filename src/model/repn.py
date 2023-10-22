@@ -12,10 +12,10 @@ class RePN(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.proj_subj = nn.Sequential(nn.Linear(const.N_CLASSES, const.repn.HIDDEN),
+        self.proj_subj = nn.Sequential(nn.Linear(const.backbone.N_CLASSES, const.repn.HIDDEN),
                                        nn.ReLU(),
                                        nn.Linear(const.repn.HIDDEN, const.repn.PROJECTION))
-        self.proj_obj = nn.Sequential(nn.Linear(const.N_CLASSES, const.repn.HIDDEN),
+        self.proj_obj = nn.Sequential(nn.Linear(const.backbone.N_CLASSES, const.repn.HIDDEN),
                                       nn.ReLU(),
                                       nn.Linear(const.repn.HIDDEN, const.repn.PROJECTION))
 

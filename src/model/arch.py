@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights, fasterrcnn_resnet50_fpn_v2
-from ..data.visualgenome import RandomSampler
+from ..data.visualgenome import Dataset
 from IPython import embed
 from .repn import RePN
 from .agcn import aGCN
@@ -20,15 +20,14 @@ class SceneGraphGenerator(torch.nn.Module):
     def forward(self, x):
         x = self.backbone(x)
         x = self.repn(x)
-        x = self.agcn(x)
-        return x
+        return self.agcn(x)
 
 
 if __name__ == '__main__':
-    dataset = RandomSampler()
+    dataset = Dataset()
     model = SceneGraphGenerator().to(const.DEVICE)
     model.eval()
 
     with torch.no_grad():
-        y_pred = model(dataset[0].unsqueeze(0).to(const.DEVICE))
+        y_pred = model(dataset[0][0].unsqueeze(0).to(const.DEVICE))
     embed()

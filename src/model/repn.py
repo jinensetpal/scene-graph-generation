@@ -36,28 +36,36 @@ class RePN(nn.Module):
             pairs = nms(pairs.indices[pairs.values.isnan() == False][:const.repn.TOP_K],  # sorted in descending order of confidence
                         prediction['boxes'], n_pairs)
 
+            scores = torch.empty(1, 2, 91)
             boxes = torch.empty(1, 2, 4)
             features = torch.empty(1, 3, 1024)
             for pair in pairs:
                 idx = (pair // n_pairs, pair % n_pairs)
                 box_set = (torch.vstack([prediction['boxes'][idx[0]],
                                          prediction['boxes'][idx[1]]])).unsqueeze(0)
+                scores_set = (torch.vstack([prediction['scores'][idx[0]],
+                                            prediction['scores'][idx[1]]])).unsqueeze(0)
                 features_set = (torch.vstack([prediction['features'][idx[0]],
                                               prediction['features'][idx[1]]])).unsqueeze(0)
 
                 features = torch.vstack([features, torch.vstack([features_set[0], features_set.mean(dim=1)]).unsqueeze(0)])
+                scores = torch.vstack([scores, scores_set])
                 boxes = torch.vstack([boxes, box_set])
 
             boxes = boxes[1:]
+            scores = scores[1:]
             features = features[1:]
 
-            graphs.append(self._generate_graph(boxes, features))
+            graphs.append(self._generate_graph(boxes, features, scores))
         return graphs
 
     @staticmethod
-    def _generate_graph(box_pairs, features):
+    def _generate_graph(box_pairs, features, score_pairs):
+        object_pairs = torch.unique(torch.cat([box_pairs, score_pairs], dim=2).view(-1, 95), dim=0)
+
         graph = HeteroData()
-        graph['object'].boxes = torch.unique(box_pairs.view(-1, 4), dim=0)
+        graph['object'].boxes = object_pairs[:, :4]
+        graph['object'].logits = object_pairs[:, 4:]
         graph['object'].features = torch.unique(features[:, :2].reshape(-1, features.shape[-1]), dim=0)
         graph['relation'].features = features[:, 2]
         ln = graph['object'].boxes.tolist()

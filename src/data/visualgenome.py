@@ -7,21 +7,27 @@ from glob import glob
 from .. import const
 import pandas as pd
 import torchvision
+import dagshub
 import random
 import torch
+import json
 
 
-class RandomSampler(torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset):
     def __init__(self):
         super().__init__()
 
-        self.paths = [random.choice(glob(str(const.DATA_DIR / 'images' / '*'))),]
+        self.images = glob(str(const.DATA_DIR / 'images' / '*'))
+        self.relationships = json.load(open(str(const.DATA_DIR / 'relationships.json')))
+        self.get_graph = GraphGeneration(json.load(open(str(const.DATA_DIR / 'object_synsets.json'))),
+                                         json.load(open(str(const.DATA_DIR / 'relationship_synsets.json')))).get_graph
 
-    def len(self):
-        return 1
+    def __len__(self):
+        return len(self.images)
 
     def __getitem__(self, idx):
-        return image_norm(self.paths[idx])
+        return image_norm(self.images[idx]), self.get_graph(str(self.relationships[idx]))
+
 
 class GraphGeneration:
     def __init__(self, obj_map, rel_map):
@@ -31,19 +37,20 @@ class GraphGeneration:
         self.obj_all = list(set(obj_map.values()))
         self.rel_all = list(set(rel_map.values()))
 
-        self.n_obj = len(obj_all)
-        self.n_rel = len(rel_all)
+        self.n_obj = len(self.obj_all)
+        self.n_rel = len(self.rel_all)
 
-    def get_graph(relationships):
+    def get_graph(self, relationships):
         obj = []
         rel = []
 
-        for pair in eval(relationships):
+        for pair in eval(relationships)['relationships']:
             try:
-                x = ((obj_map[pair['subject']['name']], pair['subject']['x'], pair['subject']['y'], pair['subject']['h'], pair['subject']['w']), rel_map[pair['predicate']], (obj_map[pair['object']['name']], pair['object']['x'], pair['object']['y'], pair['object']['h'], pair['object']['w']))
+                x = ((self.obj_map[pair['subject']['name']], pair['subject']['x'], pair['subject']['y'], pair['subject']['h'], pair['subject']['w']), self.rel_map[pair['predicate']], (self.obj_map[pair['object']['name']], pair['object']['x'], pair['object']['y'], pair['object']['h'], pair['object']['w']))
                 obj.extend((x[0], x[2]))
                 rel.append(x[1])
-            except: print('Failed to identify:', pair['subject']['name'], pair['predicate'], pair['object']['name'])
+            except KeyError:
+                print('Failed to identify:', pair['subject']['name'], pair['predicate'], pair['object']['name'])
         df = pd.DataFrame(set(obj))
 
         graph = HeteroData()
@@ -58,13 +65,16 @@ class GraphGeneration:
 
         return graph
 
+
 def image_norm(filepath):
     return torchvision.io.read_image(filepath) / 255
+
 
 def enrich(row):
     row['type'] = 'image' if row['path'].startswith('images/') else 'metadata'
     if row['type'] == 'image': row['id'] = int(row['path'].split('/')[-1].split('.')[0])
     return row
+
 
 def preprocess(manual=True):
     if not len(datasources.get_datasources(const.REPO_NAME)):
@@ -76,9 +86,9 @@ def preprocess(manual=True):
     else: ds = datasources.get_datasource(const.REPO_NAME, name=const.DATASOURCE_NAME)
 
     if not manual:
-        metadata = datasources.get_datasource('ML-Purdue/scene-graph-generation', 'visualgenome').all().download_binary_columns('relationships', load_into_memory=True).dataframe  # do not change this line, hardcoded on purpose
-        
-        dagshub.common.config.dataengine_metadata_upload_batch_size = 500  # optional if you want a smaller upload size (recommended if you have a lot of metadata per file) 
+        metadata = datasources.get_datasource('ML-Purdue/sgg-template', 'visualgenome').all().download_binary_columns('relationships', load_into_memory=True).dataframe  # do not change this line, hardcoded on purpose
+
+        dagshub.common.config.dataengine_metadata_upload_batch_size = 500  # optional if you want a smaller upload size (recommended if you have a lot of metadata per file)
         ds.upload_metadata_from_dataframe(metadata, path_column='path')
     else:
         print('[INFO] Enriching dataset.')
@@ -89,7 +99,7 @@ def preprocess(manual=True):
         print('[INFO] Obtaining metadata.')
         pred = (ds['type'] == 'metadata').all().as_ml_dataset('torch', tensorizers=[pd.read_json])[13][0]
         print('[INFO] Merging frames.')
-        df = pd.DataFrame.merge(df, pred, 
+        df = pd.DataFrame.merge(df, pred,
                                 left_on='id', right_on='image_id', how='outer')
         df['relationships'] = df['relationships'].fillna('').apply(list).apply(str)
         df = df.drop('image_id', axis=1)
@@ -105,6 +115,7 @@ def preprocess(manual=True):
     print('[INFO] Saved as a dataset.')
     (df['type'] == 'image').save_dataset(const.DATASET_NAME)
 
+
 def get_generators(force_preprocessing=False):
     if force_preprocessing or not len(datasets.get_datasets(const.REPO_NAME)): preprocess()
     ds = datasets.get_dataset(const.REPO_NAME, const.DATASET_NAME)
@@ -116,7 +127,7 @@ def get_generators(force_preprocessing=False):
               'batch_size': const.training.BATCH_SIZE,
               'metadata_columns': ['relationships',],
               'tensorizers': [image_norm, GraphGeneration(metaset[2], metaset[14]).get_graph]}
-    return [(ds['split'] == split).all().as_ml_dataloader(**kwargs) for split in ['train', 'val', 'test']]
+    return [(ds['split'] == split).all().as_ml_dataloader(**kwargs) for split in ['train', 'val', 'test']], metaset[2]
 
 
 if __name__ == '__main__':

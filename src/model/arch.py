@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights, fasterrcnn_resnet50_fpn_v2
 from ..data.visualgenome import Dataset
+from .backbone import get_backbone
 from IPython import embed
 from .repn import RePN
 from .agcn import aGCN
@@ -13,7 +13,7 @@ class SceneGraphGenerator(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.backbone = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT)
+        self.backbone = get_backbone()
         self.repn = RePN()
         self.agcn = aGCN()
 

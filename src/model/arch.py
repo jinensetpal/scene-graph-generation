@@ -24,7 +24,7 @@ class SceneGraphGenerator(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    dataset = Dataset()
+    dataset = Dataset('train')
     model = SceneGraphGenerator().to(const.DEVICE)
     model.eval()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from torch_geometric.nn.conv import HeteroConv, GATConv
-from src import const
+from .. import const
 import torch.nn as nn
 
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from dagshub.data_engine import datasources, datasets
+from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import HeteroData
 from ..utils import ohe
 from glob import glob
@@ -13,12 +14,13 @@ import torch
 import json
 
 
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self):
+class Dataset(Dataset):
+    def __init__(self, split):
         super().__init__()
 
         self.images = glob(str(const.DATA_DIR / 'images' / '*'))
-        self.relationships = json.load(open(str(const.DATA_DIR / 'relationships.json')))
+        self.relationships = pd.read_json(const.DATA_DIR / 'relationships.json')
+        self.relationships = self.relationships[self.relationships['split'] == split]
         self.get_graph = GraphGeneration(json.load(open(str(const.DATA_DIR / 'object_synsets.json'))),
                                          json.load(open(str(const.DATA_DIR / 'relationship_synsets.json')))).get_graph
 
@@ -26,7 +28,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        return image_norm(self.images[idx]), self.get_graph(str(self.relationships[idx]))
+        return image_norm(self.images[idx]), self.get_graph(self.relationships.iloc[idx])
 
 
 class GraphGeneration:
@@ -44,7 +46,7 @@ class GraphGeneration:
         obj = []
         rel = []
 
-        for pair in eval(relationships)['relationships']:
+        for pair in relationships['relationships']:
             try:
                 x = ((self.obj_map[pair['subject']['name']], pair['subject']['x'], pair['subject']['y'], pair['subject']['h'], pair['subject']['w']), self.rel_map[pair['predicate']], (self.obj_map[pair['object']['name']], pair['object']['x'], pair['object']['y'], pair['object']['h'], pair['object']['w']))
                 obj.extend((x[0], x[2]))
@@ -116,7 +118,14 @@ def preprocess(manual=True):
     (df['type'] == 'image').save_dataset(const.DATASET_NAME)
 
 
-def get_generators(force_preprocessing=False):
+def get_local_generators():
+    return [DataLoader(Dataset(split),
+                       batch_size=const.training.BATCH_SIZE,
+                       shuffle=True,
+                       collate_fn=dict) for split in ['train', 'valid', 'test']]
+
+
+def get_remote_generators(force_preprocessing=False):
     if force_preprocessing or not len(datasets.get_datasets(const.REPO_NAME)): preprocess()
     ds = datasets.get_dataset(const.REPO_NAME, const.DATASET_NAME)
     metaset = (datasources.get_datasource(const.REPO_NAME, const.DATSOURCE_NAME)['type'] == 'metadata').all().as_ml_dataset('torch', tensorizers=[lambda x: json.load(open(x)),])
@@ -127,8 +136,9 @@ def get_generators(force_preprocessing=False):
               'batch_size': const.training.BATCH_SIZE,
               'metadata_columns': ['relationships',],
               'tensorizers': [image_norm, GraphGeneration(metaset[2], metaset[14]).get_graph]}
-    return [(ds['split'] == split).all().as_ml_dataloader(**kwargs) for split in ['train', 'val', 'test']], metaset[2]
+    return [(ds['split'] == split).all().as_ml_dataloader(**kwargs) for split in ['train', 'valid', 'test']], metaset[2]
 
 
 if __name__ == '__main__':
-    train, valid, test = get_generators(force_preprocessing=True)
+    train, valid, test = get_local_generators()
+    next(iter(train))

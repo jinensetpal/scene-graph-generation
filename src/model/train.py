@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ..data.visualgenome import get_generators
+from ..data.visualgenome import get_local_generators
 from .arch import SceneGraphGenerator
 from .loss import GraphLoss
 from .. import const
@@ -30,7 +30,7 @@ def fit(model, optimizer, loss, train):
 
 
 if __name__ == '__main__':
-    train, val, test = get_generators()
+    train, val, test = get_local_generators()
     model = SceneGraphGenerator().to(const.DEVICE)
     model.backbone.eval()
 

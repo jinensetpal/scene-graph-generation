@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / 'data'
 MODEL_DIR = BASE_DIR / 'models'
 
-REPO_NAME = 'ML-Purdue/scene-graph-generation'
+REPO_NAME = 'ML-Purdue/sgg-template'
 DATASOURCE_NAME = 'visualgenome'
 DATASET_NAME = 'visualgenome'
 BUCKET_NAME = 's3://visualgenome'
